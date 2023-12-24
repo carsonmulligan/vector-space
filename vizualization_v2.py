@@ -1,39 +1,27 @@
+from node2vec import Node2Vec
+import networkx as nx
 import json
-import numpy as np
-import plotly.graph_objs as go
-from sklearn.decomposition import PCA
 
-# Load vectors from the file
-with open('vectors.json', 'r') as infile:
-    vectors = json.load(infile)
+# Load the enriched data
+with open('enriched_vectors.json', 'r') as infile:
+    data = json.load(infile)
 
-# Extracting the vectors and descriptions
-vec_array = np.array([item['Vector'] for item in vectors])
-descriptions = [item['Description'] for item in vectors]  # Updated to descriptions
+# Create a graph
+G = nx.Graph()
 
-# Using PCA for dimensionality reduction to 3D
-pca = PCA(n_components=3)
-vecs_reduced = pca.fit_transform(vec_array)
+# Add nodes and edges
+for transaction in data:
+    G.add_node(transaction["sender_company"], type='company')
+    G.add_node(transaction["receiver_company"], type='company')
+    G.add_edge(transaction["sender_company"], transaction["receiver_company"])
 
-# Create a scatter plot
-trace = go.Scatter3d(
-    x=vecs_reduced[:, 0],
-    y=vecs_reduced[:, 1],
-    z=vecs_reduced[:, 2],
-    mode='markers+text',
-    marker=dict(
-        size=5,
-        color=np.linspace(0, 1, len(descriptions)),  # Continuous color scale
-        colorscale='Viridis',
-        opacity=0.8
-    ),
-    text=descriptions,  # Use descriptions as text labels
-    textposition="top center"
-)
+# Initialize Node2Vec model
+node2vec = Node2Vec(G, dimensions=64, walk_length=30, num_walks=200, workers=4)
 
-data = [trace]
-layout = go.Layout(margin=dict(l=0, r=0, b=0, t=0))
-fig = go.Figure(data=data, layout=layout)
+# Train the model
+model = node2vec.fit(window=10, min_count=1)
 
-# Render the plot
-fig.show()
+# Get the vector for a node (company)
+vector_for_company1 = model.wv['Company_539']
+
+# Use the embeddings as needed for analysis or machine learning
